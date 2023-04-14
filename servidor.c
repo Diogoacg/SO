@@ -20,11 +20,20 @@ typedef struct
     long timestamp;
     char status[5];
     char exec_type[10];
-     long exec_elapsed_time;
+    long exec_elapsed_time;
 } InfoPipe;
 
+typedef struct{
+    int pid;
+    int num_comandos;
+    char nome_comando[10][1024];
+    long timestamp;
+}RunningPIDS;
+
+//lista de RunningPIDS
+RunningPIDS running_pids[MAX_RUNNING_PIDS];
+
 int num_running_pids = 0;
-int running_pids[MAX_RUNNING_PIDS];
 
 
 int log_file_already_exist(const char *filename)
@@ -44,7 +53,7 @@ int log_file_already_exist(const char *filename)
 void write_to_log_file(const InfoPipe *info)
 {
     char log_filename[64];
-    sprintf(log_filename, "log_pid_%d.txt", info->pid);
+    sprintf(log_filename, "logs/log_pid_%d.txt", info->pid);
 
     if (log_file_already_exist(log_filename) == 0)
     {
@@ -55,7 +64,8 @@ void write_to_log_file(const InfoPipe *info)
             exit(EXIT_FAILURE);
         }
 
-        fprintf(log_file, "PID: %d\nTimestamp: %ld\nStatus: %s\n", info->pid, info->timestamp, info->status);
+
+        fprintf(log_file, "PID: %d\nElepsedTime: %ld\nStatus: %s\n", info->pid, info->exec_elapsed_time, info->status);
         for (int i = 0; i < info->num_comandos; i++)
         {
             fprintf(log_file, "Command %d: %s\n", i + 1, info->nome_comando[i]);
@@ -66,26 +76,29 @@ void write_to_log_file(const InfoPipe *info)
     }
 }
 
-void add_pid_to_running_list(int pid)
+void add_procecc_to_running_list(int pid, char names[10][1024], long start_time,int num_comandos)
 {
-    if (num_running_pids < MAX_RUNNING_PIDS)
-    {
-        running_pids[num_running_pids++] = pid;
+    running_pids[num_running_pids].pid = pid;
+    running_pids[num_running_pids].timestamp = start_time;
+    running_pids[num_running_pids].num_comandos = num_comandos;
+    for(int i = 0; i < num_comandos; i++) {
+        strcpy(running_pids[num_running_pids].nome_comando[i], names[i]);
     }
+    num_running_pids++;
 }
 
 void remove_pid_from_running_list(int pid)
 {
     for (int i = 0; i < num_running_pids; ++i)
     {
-        if (running_pids[i] == pid)
+        if (running_pids[i].pid == pid)
         {
             for (int j = i; j < num_running_pids - 1; ++j)
             {
                 running_pids[j] = running_pids[j + 1];
             }
             num_running_pids--;
-            return;
+            break;
         }
     }
 }
@@ -95,20 +108,24 @@ void print_running_pids()
     printf("PIDs em execução:\n");
     for (int i = 0; i < num_running_pids; ++i)
     {
-        printf("%d\n", running_pids[i]);
+        printf("%d\n", running_pids[i].pid);
     }
 }
-long process_start_times[MAX_RUNNING_PIDS];
+
 void send_pid_info_to_client(int fd) {
     for (int i = 0; i < num_running_pids; ++i) {
         InfoPipe info;
         strcpy(info.exec_type, "STATUS");
-        info.pid = running_pids[i];
-
+        info.pid = running_pids[i].pid;
+        info.num_comandos = running_pids[i].num_comandos;
         struct timeval current_time;
         gettimeofday(&current_time, NULL);
-        info.exec_elapsed_time = (current_time.tv_sec * 1000 + current_time.tv_usec / 1000) - process_start_times[i];
-
+        info.exec_elapsed_time = (current_time.tv_sec * 1000 + current_time.tv_usec / 1000) - running_pids[i].timestamp;
+        for(int j=0; j < running_pids[i].num_comandos; j++){
+            strcpy(info.nome_comando[j], running_pids[i].nome_comando[j]);
+            printf("%s\n", info.nome_comando[j]); 
+            printf("%d\n", running_pids[i].num_comandos);
+        }
         write(fd, &info, sizeof(InfoPipe));
     }
 }
@@ -164,8 +181,7 @@ int main()
                 {   
                     struct timeval current_time;
                     gettimeofday(&current_time, NULL);
-                    running_pids[num_running_pids++] = info.pid;
-                    process_start_times[num_running_pids - 1] = current_time.tv_sec * 1000 + current_time.tv_usec / 1000;
+                    add_procecc_to_running_list(info.pid, info.nome_comando, current_time.tv_sec * 1000 + current_time.tv_usec / 1000, info.num_comandos);
                 }
                 else if (strcmp(info.status, "END") == 0)
                 {

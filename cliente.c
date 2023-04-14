@@ -9,6 +9,12 @@
 #include <sys/time.h>
 #include <ctype.h>
 #include <sys/wait.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <dirent.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define SERVER_PIPE "client_server_fifo"
 #define CLIENT_PIPE "server_client_fifo"
@@ -103,16 +109,11 @@ void execute_programs(size_t n, char *commands[], int fd) {
     info.pid = pipelineID;
     info.num_comandos = n;
     for (int i = 0; i < n; i++) {
-        strncpy(info.nome_comando[i], commands[i], sizeof(info.nome_comando[i]));
+        argvs[i] = parse_command(commands[i]);
+        strncpy(info.nome_comando[i], argvs[i][0], sizeof(info.nome_comando[i]));
     }
-    info.timestamp = start_time.tv_sec;
-    strcpy(info.status, "EXEC");
-
-    enviar_informacao(fd, &info);
-
     // Cria os processos filhos para cada comando
     for (i = 0; i < n; i++) {
-        argvs[i] = parse_command(commands[i]);
         pid_t pid = fork();
 
         if (pid == 0) { // Processo filho
@@ -139,6 +140,7 @@ void execute_programs(size_t n, char *commands[], int fd) {
     printf("Pipeline terminada com PID %d\n", pipelineID);
     printf("Tempo de execução: %ldms\n", elapsed_time);
 
+    info.exec_elapsed_time = elapsed_time;
     info.timestamp = end_time.tv_sec;
     strcpy(info.status, "END");
 
@@ -169,6 +171,7 @@ int executar_comando(char *nome_comando, int fd) {
         strcpy(info.exec_type, "EXECUTE");
         info.pid = pid;
         strncpy(info.nome_comando[0], nome_comando, sizeof(info.nome_comando[0]));
+        printf("%s\n", info.nome_comando[0]);
         info.num_comandos = 1;
         info.timestamp = start_time.tv_sec;
         strcpy(info.status, "EXEC");
@@ -186,6 +189,7 @@ int executar_comando(char *nome_comando, int fd) {
         printf("Programa %s terminado com PID %d\n", nome_comando, pid);
         printf("Tempo de execução: %ldms\n", elapsed_time);
 
+        info.exec_elapsed_time = elapsed_time;
         info.timestamp = end_time.tv_sec;
         strcpy(info.status, "END");
 
@@ -215,14 +219,178 @@ void print_running_pids_from_server(int fd) {
                 exit(EXIT_FAILURE);
             }
 
-            printf("PID: %d\t", info.pid);
-            printf("Tempo de execuçao: %ldms\n", info.exec_elapsed_time);
+            printf("%d ", info.pid);
+            for (int i = 0; i < info.num_comandos; i++){
+                if(i==0){
+                    printf("%s ", info.nome_comando[i]);
+                }
+                else{
+                    printf("| %s ", info.nome_comando[i]);
+                }
+            }
+            printf("%ldms\n", info.exec_elapsed_time);
         }
         else {
             break;
         }
     }
 }
+
+int find_pid(int pid, int PIDS[], int n){
+    for(int i=0; i<n; i++){
+        if (PIDS[i] == pid){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void stats_time(int PIDS[], int n) {
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./logs");
+    int elapsedTime = 0;
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (strstr(dir->d_name, "log_pid_") != NULL) {
+                // Extrair o PID do nome do arquivo
+                int pid;
+                sscanf(dir->d_name, "log_pid_%d", &pid);
+
+                if (find_pid(pid, PIDS, n)) {
+                    // Abrir o arquivo e ler o tempo de execução
+                    char filename[256];
+                    snprintf(filename, sizeof(filename)+5, "logs/%s", dir->d_name);
+                    FILE *file = fopen(filename, "r");
+                    if (file == NULL) {
+                        printf("Erro ao abrir o arquivo %s)\n", filename);
+                    }
+                    if (file != NULL) {
+                        int tempTime;
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+                        while ((read = getline(&line, &len, file)) != -1) {
+                            if (strstr(line, "ElepsedTime:") != NULL) {
+                                sscanf(line, "ElepsedTime: %d", &tempTime);
+                                elapsedTime += tempTime;
+                            }
+                        }
+                        fclose(file);
+                        if (line != NULL) {
+                            free(line);
+                        }
+                    }
+                }
+            }
+        }
+        closedir(d);
+    }
+    printf("Tempo de execução total: %d\n", elapsedTime);
+}
+
+int stats_command(const char *command, const char *pid_list[], int pid_count) {
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("logs");
+    if (d == NULL) {
+        printf("Erro ao abrir a pasta de logs\n");
+        return -1;
+    }
+
+    char filename[256];
+    int ex_count = 0;
+
+    while ((dir = readdir(d)) != NULL) {
+        for (int i = 0; i < pid_count; i++) {
+            if (strstr(dir->d_name, pid_list[i]) != NULL) {
+                snprintf(filename, sizeof(filename) + 5, "logs/%s", dir->d_name);
+
+                FILE *f = fopen(filename, "r");
+                if (f == NULL) {
+                    printf("Erro ao abrir o arquivo de log: %s\n", filename);
+                    continue;
+                }
+
+                char line[256];
+                while (fgets(line, sizeof(line), f)) {
+                    if (strstr(line, command) != NULL) {
+                        ex_count++;
+                    }
+                }
+                fclose(f);
+                break;
+            }
+        }
+    }
+
+    closedir(d);
+    return ex_count;
+}
+
+bool is_command_line(const char *line) {
+    int nr;
+    return sscanf(line, "Command %d: ", &nr) == 1;
+}
+
+void stats_uniq(const char *pid_list[], int pid_count) {
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("logs");
+    if (d == NULL) {
+        printf("Erro ao abrir a pasta de logs\n");
+        return;
+    }
+
+    const int MAX_COMMANDS = 1024;
+    char unique_commands[MAX_COMMANDS][256];
+    int unique_count = 0;
+
+    char filename[256];
+    memset(unique_commands, 0, sizeof(unique_commands));
+
+    while ((dir = readdir(d)) != NULL) {
+        for (int i = 0; i < pid_count; i++) {
+            if (strstr(dir->d_name, pid_list[i]) != NULL) {
+                snprintf(filename, sizeof(filename) + 5, "logs/%s", dir->d_name);
+
+                FILE *f = fopen(filename, "r");
+                if (f == NULL) {
+                    printf("Erro ao abrir o arquivo de log: %s\n", filename);
+                    continue;
+                }
+                char line[256];
+                while (fgets(line, sizeof(line), f)) {
+                    if (is_command_line(line)) {
+                        line[strcspn(line, "\n")] = '\0'; // Remove newline character
+                        const char *command_start = strchr(line, ':') + 2; // Localiza o início do comando após ':' e um espaço.
+
+                        bool command_found = false;
+                        for (int j = 0; j < unique_count; j++) {
+                            if (strcmp(command_start, unique_commands[j]) == 0) {
+                                command_found = true;
+                                break;
+                            }
+                        }
+
+                        if (!command_found && unique_count < MAX_COMMANDS) {
+                            strcpy(unique_commands[unique_count++], command_start);
+                        }
+                    }
+                }
+                fclose(f);
+                break;
+            }
+        }
+    }
+
+    closedir(d);
+
+    for (int i = 0; i < unique_count; i++) {
+        printf("%s\n", unique_commands[i]);
+    }
+}
+
 
 int main(int argc, char *argv[]) {
     int i = 0;
@@ -239,23 +407,16 @@ int main(int argc, char *argv[]) {
         perror("Erro ao abrir o pipe");
         exit(EXIT_FAILURE);
     }
-    Argumentos args;
-
-    analisar_argumentos(argc, argv, &args);
-
-    printf("Tipo de execucao: %s\n", args.tipo_execucao);
-    printf("Flag: %s\n", args.flag);
-    printf("Numero de comandos: %d\n", args.num_comandos);
-    for (int i = 0; i < args.num_comandos; i++) {
-        printf("Comando %d: %s\n", i + 1, args.comandos[i]);
-    }
 
     int fd;
     if ((fd = open(SERVER_PIPE, O_WRONLY)) < 0) {
         perror("Erro ao abrir o pipe");
         exit(EXIT_FAILURE);
     }
-    if(strcmp(args.tipo_execucao,"execute")==0){
+    if(strcmp(argv[1],"execute")==0){
+        Argumentos args;
+
+        analisar_argumentos(argc, argv, &args);
         if (strcmp(args.flag, "-u") == 0) {
             for (int i = 0; i < args.num_comandos; i++) {
                 executar_comando(args.comandos[i], fd);
@@ -264,12 +425,33 @@ int main(int argc, char *argv[]) {
             execute_programs(args.num_comandos, args.comandos, fd);
         }
     }
-    if (strcmp(args.tipo_execucao, "status") == 0) {
+    if (strcmp(argv[1], "status") == 0) {
         InfoPipe info;
         strcpy(info.exec_type, "STATUS");
         enviar_informacao(fd, &info);
         print_running_pids_from_server(fd_client);
     }
+    if (strcmp(argv[1], "stats-time") == 0) {
+        int PIDS[argc-2];
+        for (int i = 2; i < argc; i++) {
+            PIDS[i-2] = atoi(argv[i]);
+        }
+        stats_time(PIDS, argc-2);
+    }
+    if (strcmp(argv[1], "stats-command") == 0) {
+        const char *command = argv[2];
+        int pid_count = argc - 3;
+        const char **pid_list = (const char **) &argv[3];
+
+        int executions = stats_command(command, pid_list, pid_count);
+        printf("O comando %s foi executado %d vezes\n", argv[2], executions);
+    }
+    if (strcmp(argv[1], "stats-uniq") == 0) {
+        int pid_count = argc - 2;
+        const char **pid_list = (const char **) &argv[2];
+        stats_uniq(pid_list, pid_count);
+    }
+    close(fd);
 
 
     exit(EXIT_SUCCESS);
