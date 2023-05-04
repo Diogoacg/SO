@@ -1,12 +1,9 @@
 # SO
 
-Abrir 2 terminais, no primeiro gcc -o servidor servidor.c e ./servidor
-No segundo gcc -o cliente cliente.c e ./cliente execute "flag" "comandos" por exemplo ./cliente execute -u "ls -l | ping 1.1.1.1"
+Ir para a pasta onde está o makefile, fazer make
 
-Se der erro inicia primeiro o cliente, qd tivermos o makefile nao vai dar problema
+abrir mais 2 terminais, num executa o servidor, por exemplo ./monitor logs noutro(s) executar os pedidos dos clientes, ./tracer execute -u "comando", ./tracer execute -p "ls | grep txt" (em pipeline), ./tracer status (podem por a correr tipo um sleep e verificar depois), ./tracer stats-uniq [lista de pids], ./tracer stats-time [lista de pids] ./tracer stats-command comando [lista de pids]
 
-descobri que a pipeline são comandos que interagem entre si, para já simplesmente corre os programas
+nestes ultimos casos por exemplo ./tracer stats-uniq 2343 2345 1232
 
-parte basica praticamnete feita, menos alguns erros como por vezes o servidor fechar do nada
-
-acho que só falta as pipelines
+Penso estar tudo
