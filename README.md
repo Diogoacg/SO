@@ -72,9 +72,9 @@ typedef struct
 } InfoPipe;
 
 ```
-#Compilação e Execução
-##Compilação
-###Para compilar o projeto, utilize o comando:
+# Compilação e Execução
+## Compilação
+### Para compilar o projeto, utilize o comando:
 
 ```
 gcc -o cliente cliente.c
@@ -103,6 +103,6 @@ Em outro terminal, execute o cliente com os comandos desejados:
 Certifique-se de que os pipes nomeados (../tmp/client_server_fifo e ../tmp/server_client_<pid>) são criados corretamente e têm as permissões necessárias.
 O projeto foi desenvolvido e testado em um ambiente Linux.
 
-#Conclusão
+# Conclusão
 
 Este projeto demonstra a aplicação de conceitos de sistemas operativos, tais como comunicação entre processos (IPC) usando pipes nomeados, manipulação de processos (fork e exec), e gestão de tempo (medição de tempo de execução). O sistema é uma ferramenta robusta para a execução e monitorização de comandos em um ambiente Unix/Linux.
