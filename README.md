@@ -1,61 +1,62 @@
-# Projeto de Sistemas Operativos - Cliente/Servidor de Execução de Comandos
+# Operating Systems Project - Command Execution Client/Server
 
-## Descrição do Projeto
+## Project Description
 
-Este projeto foi desenvolvido no âmbito da unidade curricular de Sistemas Operativos na Universidade do Minho. O objetivo principal é a implementação de um sistema cliente/servidor que permite a execução de comandos, pipelines de comandos, e consultas de estado dos processos em execução. O sistema utiliza pipes nomeados (FIFOs) para comunicação entre o cliente e o servidor.
+This project was developed as part of the Operating Systems course at the University of Minho. The main objective is to implement a client/server system that allows the execution of commands, command pipelines, and queries for process state. The system utilizes named pipes (FIFOs) for communication between the client and the server.
 
-## Estrutura do Projeto
+## Project Structure
 
-O projeto está dividido em várias partes:
+The project is divided into several parts:
 
-1. **Cliente**: Responsável por enviar comandos ao servidor e processar as respostas.
-2. **Servidor**: Responsável por receber comandos do cliente, executar os comandos e enviar o estado dos processos de volta ao cliente.
-3. **Estruturas de Dados**: Definição das estruturas utilizadas para armazenar as informações dos comandos e processos.
+1. **Client**: Responsible for sending commands to the server and processing the responses.
+2. **Server**: Responsible for receiving commands from the client, executing the commands, and sending back the process states.
+3. **Data Structures**: Definition of structures used to store command and process information.
 
-## Funcionalidades Implementadas
+## Implemented Functionalities
 
-### Cliente
+### Client
 
-O cliente suporta várias operações:
+The client supports various operations:
 
-1. **Execução de Comandos**:
-   - `execute -u <comando>`: Executa um único comando.
-   - `execute -p <comando1>|<comando2>|...|<comandoN>`: Executa uma pipeline de comandos.
+1. **Command Execution**:
+   - `execute -u <command>`: Executes a single command.
+   - `execute -p <command1>|<command2>|...|<commandN>`: Executes a pipeline of commands.
 
-2. **Consulta de Estado**:
-   - `status`: Consulta o estado dos processos em execução.
+2. **State Query**:
+   - `status`: Queries the state of running processes.
 
-3. **Estatísticas**:
-   - `stats-uniq`: Mostra estatísticas únicas dos comandos executados.
-   - `stats-command <comando>`: Mostra estatísticas específicas para um comando.
-   - `stats-time`: Mostra estatísticas de tempo dos comandos executados.
+3. **Statistics**:
+   - `stats-uniq`: Shows unique statistics of executed commands.
+   - `stats-command <command>`: Shows specific statistics for a command.
+   - `stats-time`: Shows time statistics of executed commands.
 
-### Servidor
+### Server
 
-O servidor é responsável por:
+The server is responsible for:
 
-1. Receber e processar os comandos enviados pelo cliente.
-2. Executar os comandos e pipelines de comandos.
-3. Manter e enviar o estado dos processos em execução para o cliente.
-4. Calcular e enviar estatísticas solicitadas pelo cliente.
+1. Receiving and processing commands sent by the client.
+2. Executing single commands and command pipelines.
+3. Maintaining and sending back the state of running processes to the client.
+4. Calculating and sending requested statistics to the client.
 
-## Estruturas de Dados
+## Data Structures
 
-### `Argumentos`
+### `Arguments`
 
-Estrutura utilizada para armazenar os argumentos passados pelo cliente.
+Structure used to store arguments passed by the client.
 
 ```c
 typedef struct {
-    char *tipo_execucao;
+    char *execution_type;
     char *flag;
-    char *comandos[MAX_COMANDOS];
-    int num_comandos;
-} Argumentos;
+    char *commands[MAX_COMMANDS];
+    int num_commands;
+} Arguments;
+
 ```
 
 ## InfoPipe
-Estrutura utilizada para armazenar informações sobre os processos e comandos.
+Structure used to store information about processes and commands.
 
 ```c
 typedef struct
@@ -72,22 +73,22 @@ typedef struct
 } InfoPipe;
 
 ```
-# Compilação e Execução
-## Compilação
-### Para compilar o projeto, utilize o comando:
+# Compilation and Execution
+## Compilation
+### To compile the project, use the following commands:
 
 ```
 gcc -o cliente cliente.c
 gcc -o servidor servidor.c
 ```
 
-## Execução
-### Inicie o servidor:
+## Execution
+### Start the server:
 
 ```
 ./servidor
 ```
-Em outro terminal, execute o cliente com os comandos desejados:
+In another terminal, execute the client with the desired commands:
 
 ```
 ./cliente execute -u "ls -l"
@@ -98,11 +99,11 @@ Em outro terminal, execute o cliente com os comandos desejados:
 ./cliente stats-time
 
 ```
-# Notas Adicionais
+# Additional Notes
 
-Certifique-se de que os pipes nomeados (../tmp/client_server_fifo e ../tmp/server_client_<pid>) são criados corretamente e têm as permissões necessárias.
-O projeto foi desenvolvido e testado em um ambiente Linux.
+Make sure that the named pipes (../tmp/client_server_fifo and ../tmp/server_client_<pid>) are created correctly and have the necessary permissions.
+The project was developed and tested in a Linux environment.
 
-# Conclusão
+# Conclusion
 
-Este projeto demonstra a aplicação de conceitos de sistemas operativos, tais como comunicação entre processos (IPC) usando pipes nomeados, manipulação de processos (fork e exec), e gestão de tempo (medição de tempo de execução). O sistema é uma ferramenta robusta para a execução e monitorização de comandos em um ambiente Unix/Linux.
+EThis project demonstrates the application of operating systems concepts such as inter-process communication (IPC) using named pipes, process manipulation (fork and exec), and time management (execution time measurement). The system is a robust tool for executing and monitoring commands in a Linux environment.
